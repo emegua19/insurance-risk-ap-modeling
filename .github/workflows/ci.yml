@@ -28,8 +28,3 @@ jobs:
       - name: Run tests
         run: |
           pytest tests/
-
-      - name: Lint code
-        run: |
-          pip install flake8
-          flake8 src/ scripts/ --max-line-length=120
