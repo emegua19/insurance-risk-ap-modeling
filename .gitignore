@@ -1,0 +1,65 @@
+# ========================
+# Python bytecode and cache
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ========================
+# Virtual environment
+# ========================
+venv/
+.env/
+.envrc
+.venv/
+
+# ========================
+# Jupyter Notebook
+# ========================
+.ipynb_checkpoints/
+
+# ========================
+# DVC
+# ========================
+# Ignore all DVC-tracked data files
+data/**/*
+!data/.gitkeep
+!data/**/*.dvc
+!.dvcignore
+!.dvc/
+!.dvc/config
+!.dvc/config.local
+!dvc.yaml
+!dvc.lock
+
+# ========================
+# Logs and temporary files
+# ========================
+*.log
+*.tmp
+*.bak
+.DS_Store
+*.swp
+*.swo
+
+# ========================
+# Testing
+# ========================
+htmlcov/
+.tox/
+.pytest_cache/
+.coverage
+coverage.xml
+
+# ========================
+# VSCode & IDE settings (optional)
+# ========================
+.vscode/
+.idea/
+
+# ========================
+# GitHub Actions
+# ========================
+# No need to ignore anything under .github unless you want to hide workflows locally
