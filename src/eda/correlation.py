@@ -1,5 +1,3 @@
-# src/eda/correlation.py
-
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -9,10 +7,12 @@ class CorrelationAnalysis:
         self.df = df
 
     def compute_correlation_matrix(self):
+        """Compute correlation matrix for numerical columns."""
         numeric_df = self.df.select_dtypes(include='number')
         return numeric_df.corr()
 
     def plot_correlation_heatmap(self):
+        """Plot a heatmap of the correlation matrix."""
         corr = self.compute_correlation_matrix()
         plt.figure(figsize=(10, 8))
         sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm")
