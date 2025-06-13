@@ -1,16 +1,16 @@
 # Insurance Risk Analytics & Predictive Modeling
 
-##  Project Overview
+## Project Overview
 
 This repository contains the codebase and resources for the **10 Academy: Artificial Intelligence Mastery** project focused on **End-to-End Insurance Risk Analytics & Predictive Modeling** for **AlphaCare Insurance Solutions (ACIS)**.
 
 **Goal:**  
 Analyze historical car insurance claim data (Feb 2014–Aug 2015) to:
-- Identify low-risk segments
-- Optimize premiums
-- Inform marketing strategies in South Africa
+- Identify low-risk segments  
+- Optimize premiums  
+- Inform marketing strategies in South Africa  
 
-###  Project Tasks
+### Project Tasks
 - **Exploratory Data Analysis (EDA)** to uncover patterns in risk and profitability  
 - **Data Version Control (DVC)** for reproducible pipelines  
 - **A/B Hypothesis Testing** to validate risk drivers  
@@ -18,13 +18,13 @@ Analyze historical car insurance claim data (Feb 2014–Aug 2015) to:
 
 ---
 
-##  Folder Structure
+## Folder Structure
 
 ```
 
 ├── data/                     # Raw and processed datasets (tracked by DVC)
 │   ├── raw/                 # Original, unprocessed data
-│   ├── processed/           # Cleaned and transformed data
+│   ├── processed/           # Cleaned and transformed data (includes EDA plots)
 ├── src/                      # Source code for reusable modules and functions
 │   ├── eda/                 # EDA-related functions
 │   ├── modeling/            # Machine learning model implementations
@@ -48,10 +48,12 @@ Analyze historical car insurance claim data (Feb 2014–Aug 2015) to:
 ├── .github/                  # GitHub Actions workflows
 │   └── workflows/
 │       └── ci.yml           # CI/CD pipeline configuration
+├── .dvc/                     # DVC configuration and cache
 ├── .gitignore                # Git ignore file
 ├── dvc.yaml                  # DVC pipeline configuration
+├── LICENSE.md                # Project license
+├── README.md                 # Project documentation
 ├── requirements.txt          # Python dependencies
-└── README.md                 # Project documentation
 
 ````
 
@@ -62,7 +64,7 @@ Analyze historical car insurance claim data (Feb 2014–Aug 2015) to:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/insurance-risk-analytics.git
+git clone https://github.com/emegua19/insurance-risk-ap-modeling
 cd insurance-risk-analytics
 ````
 
@@ -78,28 +80,37 @@ pip install -r requirements.txt
 
 ```bash
 dvc init
-dvc remote add -d localstorage /path/to/your/local/storage
-dvc add data/raw/<data.csv>
-dvc push
+dvc remote add -d localstorage /path/to/your/local/storage  # Replace with your storage path (e.g., ~/dvc_storage)
+dvc pull  # Retrieve data from remote storage
 ```
 
-### 4. Create Branch for Task 1
+### 4. Create Branch for Tasks
 
 ```bash
+# For Task 1 (EDA)
 git checkout -b task-1
+
+# For Task 2 (DVC)
+git checkout -b task-2
+
+# For Task 3 (A/B Hypothesis Testing)
+git checkout -b task-3
+
+# For Task 4 (Predictive Modeling)
+git checkout -b task-4
 ```
 
 ---
 
-##  Git Workflow
+## Git Workflow
 
-###  Branching
+### Branching
 
-* Create a new branch for each task: `task-1`, `task-2`, etc.
+* Create a new branch for each task: `task-1`, `task-2`, `task-3`, `task-4`, etc.
 
-###  Commits
+### Commits
 
-Commit at least **three times daily** with clear messages:
+* Commit at least **three times daily** with clear messages:
 
 ```bash
 git add .
@@ -108,18 +119,18 @@ git commit -m "Implement histogram plotting for numerical variables"
 git commit -m "Add outlier detection using box plots"
 ```
 
-###  Pull Requests
+### Pull Requests
 
 * Merge task branches into `main` via pull requests on GitHub.
 
-###  Version Control
+### Version Control
 
-* Use Git for code versioning
-* Use DVC for dataset and pipeline versioning
+* Use Git for code versioning.
+* Use DVC for dataset and pipeline versioning.
 
 ---
 
-##  CI/CD with GitHub Actions
+## CI/CD with GitHub Actions
 
 A CI/CD pipeline is set up to:
 
@@ -127,11 +138,11 @@ A CI/CD pipeline is set up to:
 * Run linting (`flake8`)
 * Trigger on push or PR to `main` or `task-*` branches
 
-###  CI/CD Configuration
+### CI/CD Configuration
 
-The file: `.github/workflows/ci.yml`
+File: `.github/workflows/ci.yml`
 
-```yml
+```yaml
 name: CI Pipeline
 
 on:
@@ -171,7 +182,7 @@ jobs:
 
 ---
 
-##  Python Dependencies
+## Python Dependencies
 
 The following versions are tested for **Python 3.10+** and **Ubuntu latest**:
 
@@ -188,5 +199,92 @@ pytest==8.2.1
 flake8==7.0.0
 jupyter==1.0.0
 python-dotenv==1.0.1
+```
+
+---
+
+## Task Progress
+
+###  Task 1: Exploratory Data Analysis (EDA)
+
+* **Status**: Completed
+* **Details**:
+
+  * Implemented `DataLoader` in `src/preprocessing/`
+  * Implemented EDA modules: `EDAProcessor`, `CorrelationAnalysis`, `DescriptiveStats`, `Visualizer`
+  * Created `scripts/run_eda.py` to run full EDA
+  * Documented visuals in `notebooks/eda.ipynb`
+  * Added 3 creative plots:
+
+    * Loss Ratio by Province
+    * Claim Frequency Over Time
+    * Total Claims by Vehicle Make
+  * Unit tests added in `tests/test_eda.py`
+* **Branch**: Merged `task-1` into `main` via PR
+
+###  Task 2: Data Version Control (DVC)
+
+* **Status**: Completed
+* **Details**:
+
+  * Installed and initialized DVC (`dvc==3.51.1`)
+  * Configured remote storage at `/path/to/your/local/storage`
+  * Added raw and processed data to DVC tracking
+  * Pushed data to remote
+  * Created simple `dvc.yaml` for data pipeline
+* **Branch**: Merged `task-2` into `main` via PR
+
+---
+
+##  Upcoming Tasks
+
+###  Task 3: A/B Hypothesis Testing
+
+* **Status**: Not Started
+* **Next Step**:
+
+  * Create `task-3` branch
+  * Validate risk drivers using statistical tests (e.g., t-test, chi-square)
+  * Implement in `src/hypothesis_testing/`
+  * Document in `notebooks/hypothesis_testing.ipynb`
+
+###  Task 4: Predictive Modeling
+
+* **Status**: Not Started
+* **Next Step**:
+
+  * Create `task-4` branch
+  * Build models to predict claim severity and optimize premium pricing
+  * Use `src/modeling/` and document in `notebooks/modeling.ipynb`
+
+---
+
+##  Next Steps
+
+* Verify `main` reflects Task 1 and Task 2
+* Run:
+
+  ```bash
+  dvc pull
+  python scripts/run_eda.py
+  ```
+* Start `task-3` branch on **June 14, 2025**
+* Submit GitHub link by **June 15, 2025, 8:00 PM UTC**
+
+---
+
+##  Notes
+
+* Replace `/path/to/your/local/storage` with your actual DVC path (e.g., `~/dvc_storage`)
+* Ensure raw and cleaned CSVs are DVC-tracked
+
+---
+
+###  Commands to Update README
+
+```bash
+git add README.md
+git commit -m "Update README.md with completed Task 1 and Task 2, and plan for Task 3 and 4"
+git push origin task-2  # If you're still on task-2 branch
 ```
 
