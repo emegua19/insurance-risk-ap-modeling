@@ -1,5 +1,3 @@
-# src/eda/descriptive_stats.py
-
 import pandas as pd
 
 class DescriptiveStats:
