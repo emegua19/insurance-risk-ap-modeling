@@ -5,14 +5,13 @@ class DescriptiveStats:
         self.df = df
 
     def basic_summary(self):
-        return self.df.describe(include='all')
+        """Calculate variability for numerical features."""
+        return self.df.describe()
 
-    def calculate_loss_ratio(self):
-        if 'TotalClaims' in self.df.columns and 'TotalPremium' in self.df.columns:
-            self.df['LossRatio'] = self.df['TotalClaims'] / (self.df['TotalPremium'] + 1e-6)
-        return self.df[['TotalPremium', 'TotalClaims', 'LossRatio']]
+    def review_data_structure(self):
+        """Review data types of each column."""
+        return self.df.dtypes
 
-    def group_loss_ratio(self, by: str):
-        return self.df.groupby(by)[['TotalPremium', 'TotalClaims']].sum().assign(
-            LossRatio=lambda x: x['TotalClaims'] / (x['TotalPremium'] + 1e-6)
-        )
+    def check_missing_values(self):
+        """Check for missing values in the dataset."""
+        return self.df.isnull().sum()

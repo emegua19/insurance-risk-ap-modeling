@@ -1,96 +1,79 @@
-import pytest
-import pandas as pd
-import numpy as np
 import os
-import matplotlib.pyplot as plt
-from src.eda.correlation import CorrelationAnalysis
+import shutil
+import sys
+import pytest
+import pandas as pd  # Moved to global scope
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+
+from src.data_processing.data_loader import DataLoader
+from src.data_processing.data_cleaning import DataCleaner
 from src.eda.descriptive_stats import DescriptiveStats
-from src.eda.visualizations import Visualizer
+from src.eda.visualizations import Visualizations
+from src.eda.correlation import Correlation
 
-# Fixture to create synthetic test data
 @pytest.fixture
-def sample_df():
-    data = {
-        'TotalPremium': [1000, 1200, 800, 1500],
-        'TotalClaims': [500, 600, 400, 700],
-        'Gender': ['Male', 'Female', 'Male', 'Female'],
-        'VehicleType': ['Sedan', 'SUV', 'Truck', 'Sedan'],
-        'Province': ['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Gauteng']
+def setup_test_data():
+    """Fixture to set up temporary test data."""
+    test_dir = "tests/test_data/"
+    os.makedirs(test_dir, exist_ok=True)
+    input_file = os.path.join(test_dir, "test_data.txt")
+    raw_output_file = os.path.join(test_dir, "insurance_data.csv")
+    processed_output_file = os.path.join(test_dir, "insurance_cleaned_data.csv")
+
+    # Create sample dataset
+    sample_data = {
+        'TotalPremium': [1000, 1500, 2000, 1200, None],
+        'TotalClaims': [200, 300, 400, 250, 150],
+        'VehicleType': ['Sedan', 'SUV', 'Sedan', 'Truck', 'SUV'],
+        'Province': ['A', 'B', 'A', 'C', 'B'],
+        'CoverType': ['Comprehensive', 'ThirdParty', 'Comprehensive', 'ThirdParty', 'Comprehensive'],
+        'Gender': ['M', 'F', 'M', 'F', 'M']
     }
-    return pd.DataFrame(data)
+    pd.DataFrame(sample_data).to_csv(input_file, sep='|', index=False)
 
-# Tests for CorrelationAnalysis
-def test_correlation_analysis_init(sample_df):
-    corr_analyzer = CorrelationAnalysis(sample_df)
-    assert corr_analyzer.df.equals(sample_df)
+    loader = DataLoader(test_dir)
+    cleaner = DataCleaner(processed_output_file)
+    df, _ = loader.load_and_convert("test_data.txt")
+    cleaned_df = cleaner.clean_data(df)
 
-def test_compute_correlation_matrix(sample_df):
-    corr_analyzer = CorrelationAnalysis(sample_df)
-    corr_matrix = corr_analyzer.compute_correlation_matrix()
-    assert corr_matrix.shape == (2, 2)  # Only numerical columns: TotalPremium, TotalClaims
-    assert 'TotalPremium' in corr_matrix.index
-    assert corr_matrix.loc['TotalPremium', 'TotalClaims'] >= 0  # Positive correlation expected
+    yield cleaned_df, loader, cleaner
 
-def test_plot_correlation_heatmap(sample_df):
-    corr_analyzer = CorrelationAnalysis(sample_df)
-    corr_analyzer.plot_correlation_heatmap()
-    # Note: plt.show() makes direct testing difficult; use file save or mock for CI
-    assert True  # Placeholder; consider saving to file and checking existence
+    # Teardown: remove temporary files
+    shutil.rmtree(test_dir, ignore_errors=True)
 
-# Tests for DescriptiveStats
-def test_descriptive_stats_init(sample_df):
-    stats = DescriptiveStats(sample_df)
-    assert stats.df.equals(sample_df)
-
-def test_basic_summary(sample_df):
-    stats = DescriptiveStats(sample_df)
+def test_descriptive_stats(setup_test_data):
+    """Test DescriptiveStats methods."""
+    cleaned_df, _, _ = setup_test_data
+    stats = DescriptiveStats(cleaned_df)
     summary = stats.basic_summary()
-    assert not summary.empty
-    assert 'TotalPremium' in summary.columns
-    assert 'Gender' in summary.columns  # Check column, not index
-    assert summary.loc['mean', 'TotalPremium'] == 1125.0  # (1000 + 1200 + 800 + 1500) / 4
+    assert 'TotalPremium' in cleaned_df.columns  # Check column existence
+    assert len(stats.check_missing_values()) == len(cleaned_df.columns)
+    assert isinstance(stats.review_data_structure(), pd.Series)
 
-def test_calculate_loss_ratio(sample_df):
-    stats = DescriptiveStats(sample_df)
-    result = stats.calculate_loss_ratio()
-    assert 'LossRatio' in result.columns
-    assert len(result) == len(sample_df)
-    assert result['LossRatio'].iloc[0] == 500 / (1000 + 1e-6)  # Approx 0.5
-
-def test_group_loss_ratio(sample_df):
-    stats = DescriptiveStats(sample_df)
-    result = stats.group_loss_ratio('Province')
-    assert 'LossRatio' in result.columns
-    assert len(result) == sample_df['Province'].nunique()
-    assert result.loc['Gauteng', 'LossRatio'] == (500 + 700) / (1000 + 1500 + 1e-6)  # Approx 0.8
-
-# Tests for Visualizer
-def test_visualizer_init(sample_df):
-    viz = Visualizer(sample_df)
-    assert viz.df.equals(sample_df)
-    assert os.path.exists(viz.output_dir)
-
-def test_plot_histogram(sample_df):
-    viz = Visualizer(sample_df)
+def test_visualizations(setup_test_data):
+    """Test Visualization methods."""
+    cleaned_df, _, _ = setup_test_data
+    viz = Visualizations(cleaned_df)
     viz.plot_histogram('TotalPremium')
-    assert os.path.exists(os.path.join(viz.output_dir, 'histogram_TotalPremium.png'))
-
-def test_plot_boxplot(sample_df):
-    viz = Visualizer(sample_df)
+    viz.plot_bar_chart('VehicleType')
     viz.plot_boxplot('TotalPremium')
-    assert os.path.exists(os.path.join(viz.output_dir, 'boxplot_TotalPremium.png'))
+    viz.create_insight_plots()
+    assert os.path.exists("output/eda/histogram_TotalPremium.png")
+    assert os.path.exists("output/eda/bar_chart_VehicleType.png")
+    assert os.path.exists("output/eda/boxplot_TotalPremium.png")
+    assert os.path.exists("output/eda/avg_premium_by_province.png")
 
-def test_plot_bar_chart(sample_df):
-    viz = Visualizer(sample_df)
-    viz.plot_bar_chart('Gender')
-    assert os.path.exists(os.path.join(viz.output_dir, 'bar_chart_Gender.png'))
+def test_correlation(setup_test_data):
+    """Test Correlation methods."""
+    cleaned_df, _, _ = setup_test_data
+    corr = Correlation(cleaned_df)
+    matrix = corr.explore_correlations()
+    assert isinstance(matrix, pd.DataFrame)
+    corr.scatter_plots_by_geo('Province')
+    corr.trends_over_geography()
+    assert os.path.exists("output/eda/correlation_matrix.png")
+    assert os.path.exists("output/eda/scatter_Province_premium_claims.png")
+    assert os.path.exists("output/eda/premium_by_covertype.png")
 
-def test_generate_insight_plots(sample_df):
-    viz = Visualizer(sample_df)
-    viz.generate_insight_plots()
-    expected_files = [
-        'bar_chart_Gender.png', 'bar_chart_VehicleType.png', 'bar_chart_Province.png',
-        'boxplot_Gender.png', 'boxplot_VehicleType.png', 'boxplot_Province.png'
-    ]
-    for file in expected_files:
-        assert os.path.exists(os.path.join(viz.output_dir, file))
+if __name__ == '__main__':
+    pytest.main([__file__])
