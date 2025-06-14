@@ -13,10 +13,6 @@ from pathlib import Path
 import yaml
 import os
 import sys
-
-# make src importable
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 # ---------------- internal imports ---------------- #
 from src.utils.data_loader import DataLoader          # updated loader
 from src.data_processing.data_cleaning import DataCleaner
@@ -24,6 +20,9 @@ from src.eda.descriptive_stats import DescriptiveStats
 from src.eda.visualizations import Visualizations
 from src.eda.correlation import Correlation
 # -------------------------------------------------- #
+
+# make src importable
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 # ------------------------------------------------------------------ #
@@ -50,11 +49,9 @@ def setup_logger(log_path: Path, level: int = logging.INFO) -> None:
 # ------------------------------------------------------------------ #
 # Main pipeline                                                      #
 # ------------------------------------------------------------------ #
-# ... (unchanged imports and helpers) ...
-
 def main(cfg_path: str) -> None:
     cfg = load_yaml(cfg_path)
-    base_output_dir  = Path(cfg["general"]["base_output_dir"])
+    base_output_dir = Path(cfg["general"]["base_output_dir"])
     plots_output_dir = Path(cfg["general"]["plots_output_dir"])
     base_output_dir.mkdir(parents=True, exist_ok=True)
     plots_output_dir.mkdir(parents=True, exist_ok=True)
@@ -79,7 +76,7 @@ def main(cfg_path: str) -> None:
     # ------------------------------------------------------------------ #
     # 2. Clean data
     # ------------------------------------------------------------------ #
-    cl_cfg  = cfg["data_cleaner"]
+    cl_cfg = cfg["data_cleaner"]
     cleaner = DataCleaner(cl_cfg["output_path"])
     df_clean = cleaner.clean_data(df)
     cleaner.save_cleaned_data()
@@ -92,9 +89,15 @@ def main(cfg_path: str) -> None:
     # ------------------------------------------------------------------ #
     stats = DescriptiveStats(df_clean)
     (base_output_dir / "stats").mkdir(exist_ok=True)
-    stats.basic_summary().to_csv(base_output_dir / "stats" / "basic_summary.csv")
-    stats.review_data_structure().to_csv(base_output_dir / "stats" / "dtypes.csv")
-    stats.missing_summary().to_csv(base_output_dir / "stats" / "missing_summary.csv")
+    stats.basic_summary().to_csv(
+        base_output_dir / "stats" / "basic_summary.csv")
+    
+    stats.review_data_structure().to_csv(
+        base_output_dir / "stats" / "dtypes.csv")
+    
+    stats.missing_summary().to_csv(
+        base_output_dir / "stats" / "missing_summary.csv")
+    
     log.info("Descriptive stats exported")
 
     # >>> PRINT key summaries to console
@@ -102,7 +105,11 @@ def main(cfg_path: str) -> None:
     print(stats.basic_summary().loc[["mean", "std", "min", "max"]])
 
     print("\n=== MISSING VALUES (top 10) ===")
-    print(stats.missing_summary().sort_values("Missing", ascending=False).head(10))
+    print(
+        stats.missing_summary()
+        .sort_values("Missing", ascending=False)
+        .head(10)
+    )
 
     # ------------------------------------------------------------------ #
     # 4. Visualisations
@@ -123,8 +130,7 @@ def main(cfg_path: str) -> None:
         viz.create_insight_plots()
 
     log.info("Visualisations generated -> %s", plots_output_dir)
-    print(" Plots saved to:", plots_output_dir)
-
+    print("Plots saved to:", plots_output_dir)
 
     # ------------------------------------------------------------------ #
     # 5. Correlation & geographic trends
@@ -140,6 +146,7 @@ def main(cfg_path: str) -> None:
     print(corr_matrix.iloc[:5, :5])
 
     log.info("=== EDA pipeline finished successfully ===")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run ACIS EDA pipeline")
