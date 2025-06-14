@@ -149,7 +149,9 @@ def main(cfg_path: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run ACIS EDA pipeline")
-    parser.add_argument("--config", default="configs/eda_config.yaml",
-                        help="Path to YAML configuration file")
+    parser = argparse.ArgumentParser(
+        description="Run ACIS EDA pipeline")
+    parser.add_argument(
+        "--config", default="configs/eda_config.yaml",
+        help="Path to YAML configuration file")
     main(parser.parse_args().config)
