@@ -1,6 +1,4 @@
-### Updated `README.md`
 
-```markdown
 # Insurance Risk Analytics & Predictive Modeling
 
 ## Project Overview
@@ -216,35 +214,3 @@ Run tests:
 ```bash
 pytest tests/
 ```
-
-```
-
-### Changes Made
-1. **DVC Setup Section**:
-   - Updated the remote path from `../dvc-storage` to `/new/dvc-storage` to align with the suggested path.
-   - Expanded the "Track and Push Data" section to include all three tracked files (`MachineLearningRating_v3.csv`, `MachineLearningRating_v3.txt`, `insurance_cleaned_data.csv`) with their respective `dvc add` and `git add` commands.
-   - Adjusted the commit message to match the one you used: "Track data/raw/MachineLearningRating_v3.csv, data/raw/MachineLearningRating_v3.txt, and data/processed/insurance_cleaned_data.csv with DVC".
-
-2. **Git Workflow**:
-   - Updated the branching example to reflect the current branch `task-2-v2`.
-
-3. **Task 2: DVC Integration**:
-   - Updated to list the specific datasets tracked and the new remote path.
-   - Noted the `.gitignore` update for clarity.
-
-4. **Next Steps**:
-   - Adjusted the timeline to start `task-3` today (June 15, 2025) and updated the submission deadline to 5:00 PM EAT to align with the current day and a reasonable cutoff.
-
-5. **General**:
-   - Ensured consistency with your repository structure and the latest DVC setup progress.
-
-### Next Steps
-- Save this updated `README.md` and commit it:
-  ```bash
-  git add README.md
-  git commit -m "Update README.md with refined DVC setup and timeline"
-  git push origin task-2-v2
-  ```
-- Ensure all DVC changes are pushed (`dvc push`) and proceed with merging `task-2-v2` into `main` via a Pull Request.
-
-Let me know if you need further adjustments or help with the merge process!
