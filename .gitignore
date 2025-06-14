@@ -23,9 +23,11 @@ venv/
 # ========================
 # DVC
 # ========================
-# Ignore all DVC-tracked data files
-data/**/*
-!data/.gitkeep
+# Ignore all contents under data/ except specified files
+data/**/
+!data/
+!data/**/
+# Un-ignore .dvc files and configuration
 !data/**/*.dvc
 !.dvcignore
 !.dvc/
@@ -43,7 +45,8 @@ data/**/*
 .DS_Store
 *.swp
 *.swo
-*.CSV
+.CSV
+
 # ========================
 # Testing
 # ========================
