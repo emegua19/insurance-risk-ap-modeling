@@ -3,9 +3,9 @@ import seaborn as sns
 import os
 
 class Visualizations:
-    def __init__(self, df):
+    def __init__(self, df, output_dir="outputs/eda/plots"):
         self.df = df
-        self.output_dir = "output/eda/"
+        self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
     def plot_histogram(self, column):

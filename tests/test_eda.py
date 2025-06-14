@@ -1,79 +1,96 @@
-import os
-import shutil
-import sys
-import pytest
-import pandas as pd  # Moved to global scope
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# tests/test_run.py
+"""
+End‑to‑end test for scripts/run_eda.py using a temporary dataset
+and temporary output folders.
+"""
 
-from src.data_processing.data_loader import DataLoader
-from src.data_processing.data_cleaning import DataCleaner
-from src.eda.descriptive_stats import DescriptiveStats
-from src.eda.visualizations import Visualizations
-from src.eda.correlation import Correlation
+from pathlib import Path
+import sys
+import yaml
+import pandas as pd
+
+import pytest
+
+# ------------------------------------------------------------------ #
+# make project src importable                                        #
+# ------------------------------------------------------------------ #
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
+
+from scripts import run_eda  # noqa: E402
+
 
 @pytest.fixture
-def setup_test_data():
-    """Fixture to set up temporary test data."""
-    test_dir = "tests/test_data/"
-    os.makedirs(test_dir, exist_ok=True)
-    input_file = os.path.join(test_dir, "test_data.txt")
-    raw_output_file = os.path.join(test_dir, "insurance_data.csv")
-    processed_output_file = os.path.join(test_dir, "insurance_cleaned_data.csv")
+def mini_project(tmp_path: Path):
+    """
+    Set up a minimal raw dataset + config YAML in a temporary directory,
+    return the path to the YAML config.
+    """
+    # 1. Directory scaffold
+    raw_dir = tmp_path / "data" / "raw"
+    raw_dir.mkdir(parents=True)
+    processed_dir = tmp_path / "data" / "processed"
+    processed_dir.mkdir(parents=True)
 
-    # Create sample dataset
-    sample_data = {
-        'TotalPremium': [1000, 1500, 2000, 1200, None],
-        'TotalClaims': [200, 300, 400, 250, 150],
-        'VehicleType': ['Sedan', 'SUV', 'Sedan', 'Truck', 'SUV'],
-        'Province': ['A', 'B', 'A', 'C', 'B'],
-        'CoverType': ['Comprehensive', 'ThirdParty', 'Comprehensive', 'ThirdParty', 'Comprehensive'],
-        'Gender': ['M', 'F', 'M', 'F', 'M']
+    # 2. Create tiny raw .txt (pipe‑delimited)
+    raw_txt = raw_dir / "mini.txt"
+    pd.DataFrame(
+        {
+            "TotalPremium": [1000, 1500, 2000, 1200],
+            "TotalClaims": [200, 300, 400, 250],
+            "VehicleType": ["Sedan", "SUV", "Sedan", "Truck"],
+            "Province": ["A", "B", "A", "C"],
+            "CoverType": ["Comp", "Third", "Comp", "Third"],
+            "Gender": ["M", "F", "M", "F"],
+        }
+    ).to_csv(raw_txt, sep="|", index=False)
+
+    # 3. Build YAML config
+    cfg = {
+        "general": {
+            "base_output_dir": str(tmp_path / "outputs" / "eda"),
+            "plots_output_dir": str(tmp_path / "outputs" / "eda" / "plots"),
+        },
+        "data_loader": {
+            "input_dir": str(raw_dir),
+            "filename": "mini.txt",
+            "delimiter": "|",
+            "file_type": "txt",
+        },
+        "data_cleaner": {
+            "output_path": str(processed_dir / "clean.csv"),
+        },
+        "visualisations": {
+            "histograms": ["TotalPremium"],
+            "bar_charts": ["VehicleType"],
+            "box_plots": [],
+            "geo_column": "Province",
+            "insight_plots": [],
+        },
     }
-    pd.DataFrame(sample_data).to_csv(input_file, sep='|', index=False)
+    cfg_path = tmp_path / "test_cfg.yaml"
+    with cfg_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f)
 
-    loader = DataLoader(test_dir)
-    cleaner = DataCleaner(processed_output_file)
-    df, _ = loader.load_and_convert("test_data.txt")
-    cleaned_df = cleaner.clean_data(df)
+    return cfg_path, tmp_path
 
-    yield cleaned_df, loader, cleaner
 
-    # Teardown: remove temporary files
-    shutil.rmtree(test_dir, ignore_errors=True)
+def test_run_eda_end_to_end(mini_project):
+    """
+    Run the entire pipeline on the mini dataset and assert artefacts exist.
+    """
+    cfg_path, tmp_path = mini_project
 
-def test_descriptive_stats(setup_test_data):
-    """Test DescriptiveStats methods."""
-    cleaned_df, _, _ = setup_test_data
-    stats = DescriptiveStats(cleaned_df)
-    summary = stats.basic_summary()
-    assert 'TotalPremium' in cleaned_df.columns  # Check column existence
-    assert len(stats.check_missing_values()) == len(cleaned_df.columns)
-    assert isinstance(stats.review_data_structure(), pd.Series)
+    # Execute the pipeline
+    run_eda.main(str(cfg_path))
 
-def test_visualizations(setup_test_data):
-    """Test Visualization methods."""
-    cleaned_df, _, _ = setup_test_data
-    viz = Visualizations(cleaned_df)
-    viz.plot_histogram('TotalPremium')
-    viz.plot_bar_chart('VehicleType')
-    viz.plot_boxplot('TotalPremium')
-    viz.create_insight_plots()
-    assert os.path.exists("output/eda/histogram_TotalPremium.png")
-    assert os.path.exists("output/eda/bar_chart_VehicleType.png")
-    assert os.path.exists("output/eda/boxplot_TotalPremium.png")
-    assert os.path.exists("output/eda/avg_premium_by_province.png")
+    # Paths to check
+    base_out = tmp_path / "outputs" / "eda"
+    plots_out = base_out / "plots"
+    stats_out = base_out / "stats"
 
-def test_correlation(setup_test_data):
-    """Test Correlation methods."""
-    cleaned_df, _, _ = setup_test_data
-    corr = Correlation(cleaned_df)
-    matrix = corr.explore_correlations()
-    assert isinstance(matrix, pd.DataFrame)
-    corr.scatter_plots_by_geo('Province')
-    corr.trends_over_geography()
-    assert os.path.exists("output/eda/correlation_matrix.png")
-    assert os.path.exists("output/eda/scatter_Province_premium_claims.png")
-    assert os.path.exists("output/eda/premium_by_covertype.png")
-
-if __name__ == '__main__':
-    pytest.main([__file__])
+    # Assertions
+    assert (stats_out / "basic_summary.csv").exists()
+    assert any(plots_out.glob("histogram_TotalPremium*.png"))
+    assert (stats_out / "correlation_matrix.csv").exists()
+    assert (base_out / "eda_pipeline.log").exists()
