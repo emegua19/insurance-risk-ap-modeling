@@ -1,4 +1,4 @@
 [core]
     remote = localstorage
 ['remote "localstorage"']
-    url = ../../dvc-storage
+    url = C:\Users\yitbie\my-dvc-storage
