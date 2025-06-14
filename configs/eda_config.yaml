@@ -1,0 +1,53 @@
+# ------------------------------------------------------------------
+# General settings
+# ------------------------------------------------------------------
+general:
+  base_output_dir: "outputs/eda"          # top-level folder (for logs, stats)
+  plots_output_dir: "outputs/eda/plots"   # where plots will be saved
+
+# ------------------------------------------------------------------
+# Data loader options
+# ------------------------------------------------------------------
+data_loader:
+  input_dir: "data/raw"
+  filename: "MachineLearningRating_v3.txt"  # switch to .csv if pre‑converted
+  delimiter: "|"                            # ignored for file_type csv
+  file_type: "txt"                          # "txt" or "csv"
+
+# ------------------------------------------------------------------
+# Data cleaner options
+# ------------------------------------------------------------------
+data_cleaner:
+  output_path: "data/processed/insurance_cleaned_data.csv"
+
+# ------------------------------------------------------------------
+# Visualisation settings
+# ------------------------------------------------------------------
+visualisations:
+  # Standard plots
+  histograms:    ["TotalPremium", "TotalClaims"]   # 2 histograms
+  bar_charts:    ["VehicleType"]                   # 1 bar chart
+  box_plots:     ["TotalPremium"]                  # 1 box plot
+  geo_column:    "Province"                        # for scatter
+
+  # Insight / creative plots (exactly 3)
+  insight_plots:
+    # 1 Average premium by province (bar plot)
+    - kind: "bar"
+      name: "avg_premium_by_province"
+      x: "Province"
+      y: "TotalPremium"
+      agg: "mean"
+
+    # 2 Claims vs premium by vehicle type (scatter)
+    - kind: "scatter"
+      name: "claims_vs_premium_by_vehicle"
+      x: "TotalPremium"
+      y: "TotalClaims"
+      hue: "VehicleType"
+
+    # 3 Loss‑ratio distribution by gender (box plot)
+    - kind: "box"
+      name: "loss_ratio_by_gender"
+      x: "Gender"
+      y: "LossRatio"          # auto‑created in Visualizations if absent
