@@ -23,18 +23,24 @@ venv/
 # ========================
 # DVC
 # ========================
-# Ignore all contents under data/ except specified files
-data/**/
-!data/
-!data/**/
-# Un-ignore .dvc files and configuration
-!data/**/*.dvc
+# Ignore all CSVs except their tracking files
+*.csv
+*.CSV 
+*.txt
+!*.txt.dvc
+!*.csv.dvc
+
+# Track DVC metadata and config
 !.dvcignore
 !.dvc/
 !.dvc/config
 !.dvc/config.local
 !dvc.yaml
 !dvc.lock
+
+# Un-ignore data folders (so .dvc files in them are tracked)
+!data/
+!data/**/*.dvc
 
 # ========================
 # Logs and temporary files
@@ -45,7 +51,6 @@ data/**/
 .DS_Store
 *.swp
 *.swo
-.CSV
 
 # ========================
 # Testing
@@ -57,7 +62,7 @@ htmlcov/
 coverage.xml
 
 # ========================
-# VSCode & IDE settings (optional)
+# VSCode & IDE settings
 # ========================
 .vscode/
 .idea/
@@ -65,4 +70,4 @@ coverage.xml
 # ========================
 # GitHub Actions
 # ========================
-# No need to ignore anything under .github unless you want to hide workflows locally
+# Leave workflows visible
