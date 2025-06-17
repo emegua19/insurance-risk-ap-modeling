@@ -24,14 +24,18 @@ from src.eda.correlation import Correlation
 # make src importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-
 # ------------------------------------------------------------------ #
 # Helper functions                                                   #
 # ------------------------------------------------------------------ #
 def load_yaml(path: str | Path) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
+    """Load YAML configuration file with error handling."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file not found: {path}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing YAML file {path}: {e}")
 
 def setup_logger(log_path: Path, level: int = logging.INFO) -> None:
     """Configure console + file logging."""
@@ -41,10 +45,9 @@ def setup_logger(log_path: Path, level: int = logging.INFO) -> None:
         format=fmt,
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(log_path, mode="w"),
+            logging.FileHandler(log_path, mode="w", encoding="utf-8"),
         ],
     )
-
 
 # ------------------------------------------------------------------ #
 # Main pipeline                                                      #
@@ -64,10 +67,16 @@ def main(cfg_path: str) -> None:
     # ------------------------------------------------------------------ #
     ld_cfg = cfg["data_loader"]
     loader = DataLoader(ld_cfg["input_dir"], delimiter=ld_cfg["delimiter"])
+    file_path = os.path.join(ld_cfg["input_dir"], ld_cfg["filename"])
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Input file not found: {file_path}")
+
+    # Specify dtype for CapitalOutstanding to avoid DtypeWarning
+    dtype = {'CapitalOutstanding': 'float'}  # Add other columns as needed
     df = (
-        loader.load_txt(ld_cfg["filename"], convert_to_csv=True)
+        loader.load_txt(ld_cfg["filename"], convert_to_csv=True, dtype=dtype)
         if ld_cfg["file_type"] == "txt"
-        else loader.load_csv(ld_cfg["filename"])
+        else loader.load_csv(ld_cfg["filename"], dtype=dtype)
     )
     log.info("Raw data loaded: %s rows × %s cols", *df.shape)
     print("\n=== RAW SAMPLE ===")
@@ -77,12 +86,23 @@ def main(cfg_path: str) -> None:
     # 2. Clean data
     # ------------------------------------------------------------------ #
     cl_cfg = cfg["data_cleaner"]
-    cleaner = DataCleaner(cl_cfg["output_path"])
+    # Ensure output path matches hypothesis testing input
+    output_path = "data/processed/insurance_cleaned_data.csv"
+    cleaner = DataCleaner(output_path)
     df_clean = cleaner.clean_data(df)
     cleaner.save_cleaned_data()
-    log.info("Cleaned data saved -> %s", cl_cfg["output_path"])
+    log.info("Cleaned data saved -> %s", output_path)
     print("\n=== CLEANED SAMPLE ===")
     print(df_clean.head(3))
+
+    # Validate covariate columns
+    expected_covariates = {'Age', 'PlanType'}  # Adjust based on config or needs
+    present_covariates = set(df_clean.columns) & expected_covariates
+    missing_covariates = expected_covariates - present_covariates
+    if missing_covariates:
+        log.warning(f"Missing expected covariates: {missing_covariates}. Check data or config.")
+    for cov in present_covariates:
+        log.info(f"Covariate {cov} found with type: {df_clean[cov].dtype}")
 
     # ------------------------------------------------------------------ #
     # 3. Descriptive statistics
@@ -146,7 +166,6 @@ def main(cfg_path: str) -> None:
     print(corr_matrix.iloc[:5, :5])
 
     log.info("=== EDA pipeline finished successfully ===")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

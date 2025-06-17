@@ -10,9 +10,11 @@ general:
 # ------------------------------------------------------------------
 data_loader:
   input_dir: "data/raw"
-  filename: "MachineLearningRating_v3.txt"  # switch to .csv if pre‑converted
+  filename: "MachineLearningRating_v3.txt"  # switch to .csv if pre-converted
   delimiter: "|"                            # ignored for file_type csv
   file_type: "txt"                          # "txt" or "csv"
+  dtype: {"CapitalOutstanding": "float"}    # Specify dtype to handle mixed types
+  encoding: "utf-8"                         # Specify encoding for consistency
 
 # ------------------------------------------------------------------
 # Data cleaner options
@@ -21,14 +23,20 @@ data_cleaner:
   output_path: "data/processed/insurance_cleaned_data.csv"
 
 # ------------------------------------------------------------------
+# Covariate settings (for validation)
+# ------------------------------------------------------------------
+covariates:
+  expected: ["Age", "PlanType"]  # Columns expected for balance checks
+
+# ------------------------------------------------------------------
 # Visualisation settings
 # ------------------------------------------------------------------
 visualisations:
   # Standard plots
-  histograms:    ["TotalPremium", "TotalClaims"]   # 2 histograms
-  bar_charts:    ["VehicleType"]                   # 1 bar chart
-  box_plots:     ["TotalPremium"]                  # 1 box plot
-  geo_column:    "Province"                        # for scatter
+  histograms: ["TotalPremium", "TotalClaims"]   # 2 histograms
+  bar_charts: ["VehicleType"]                   # 1 bar chart
+  box_plots: ["TotalPremium"]                   # 1 box plot
+  geo_column: "Province"                        # for scatter
 
   # Insight / creative plots (exactly 3)
   insight_plots:
@@ -46,8 +54,8 @@ visualisations:
       y: "TotalClaims"
       hue: "VehicleType"
 
-    # 3 Loss‑ratio distribution by gender (box plot)
+    # 3 Loss-ratio distribution by gender (box plot)
     - kind: "box"
       name: "loss_ratio_by_gender"
       x: "Gender"
-      y: "LossRatio"          # auto‑created in Visualizations if absent
+      y: "LossRatio"          # Auto-created if absent; ensure Visualizations supports this
