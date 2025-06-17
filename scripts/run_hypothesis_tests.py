@@ -1,151 +1,150 @@
-#!/usr/bin/env python3
-# scripts/run_hypothesis_tests.py
-
-import argparse
-import logging
-from pathlib import Path
-
-import pandas as pd
 import yaml
+import pandas as pd
+import logging
+import os
+import sys
+from datetime import datetime
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.hypothesis_testing.metrics import (
-    add_has_claim,
-    loss_ratio,
-    claim_frequency,
-    claim_severity,
+    calculate_claim_frequency,
+    calculate_claim_severity,
+    calculate_margin,
+    calculate_loss_ratio
 )
-from src.hypothesis_testing.segmentation import ab_segment, ensure_balance
-from src.hypothesis_testing.statistical_tests import (
-    chi2_test_counts,
-    two_proportion_z_test,
-    welchs_t_test,
-    mann_whitney_u,
-)
+from src.hypothesis_testing.segmentation import ab_segment, ensure_balance, flag_imbalances
+from src.hypothesis_testing.statistical_tests import run_test
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', encoding='utf-8')
 
-TEST_MAP = {
-    "chi2": chi2_test_counts,
-    "ztest": two_proportion_z_test,
-    "ttest": welchs_t_test,
-    "mw_u": mann_whitney_u,
-}
+def load_config(config_path):
+    """Load configuration from YAML file.
 
+    Args:
+        config_path (str): Path to the config file.
 
-def load_config(path: Path) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    Returns:
+        dict: Configuration dictionary.
 
-
-def compute_kpi(df: pd.DataFrame, kpi: str, temp_col: str = None) -> pd.DataFrame:
+    Raises:
+        FileNotFoundError: If config file is not found.
     """
-    Ensure the KPI column exists on df.
-    For 'frequency', adds 'has_claim' then returns df with that column.
-    For 'severity', filters to >0 and returns df.
-    For 'loss_ratio', adds 'loss_ratio' column.
-    """
-    if kpi == "frequency":
-        return add_has_claim(df)
-    elif kpi == "severity":
-        # no new column needed, severity is computed groupwise later
-        return df
-    elif kpi == "loss_ratio":
-        df = df.copy()
-        df["loss_ratio"] = df["TotalClaims"] / (df["TotalPremium"].replace({0: float("nan")}))
-        return df
-    else:
-        raise ValueError(f"Unknown KPI: {kpi}")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as file:
+            return yaml.safe_load(file)
+    except FileNotFoundError:
+        logging.error(f"Config file not found: {config_path}")
+        raise
 
+def write_markdown_summary(results, output_path):
+    """Write hypothesis test results to a Markdown file.
 
-def run_tests(cfg: dict, df: pd.DataFrame) -> pd.DataFrame:
+    Args:
+        results (list): List of test result dictionaries.
+        output_path (str): Path to save the Markdown file.
     """
-    Run each hypothesis test defined in cfg["tests"].
-    Returns a summary DataFrame.
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write("# Hypothesis Testing Summary\n")
+        f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        f.write("| Test Name | KPI | Statistic | p-value | Decision |\n")
+        f.write("|-----------|-----|-----------|---------|----------|\n")
+        for result in results:
+            decision = "Reject H₀" if result['p_value'] < result['alpha'] else "Fail to Reject H₀"
+            f.write(f"| {result['name']} | {result['kpi']} | {result['statistic']:.4f} | {result['p_value']:.4f} | {decision} |\n")
+    logging.info(f"Hypothesis summary written to {output_path}")
+
+def run_tests(cfg):
+    """Run hypothesis tests based on configuration.
+
+    Args:
+        cfg (dict): Configuration dictionary.
+
+    Returns:
+        list: List of test result dictionaries.
     """
+    # Validate required columns with dtype specification for CapitalOutstanding
+    required_columns = {'TotalClaims', 'TotalPremium'}
+    df = pd.read_csv(cfg["data"]["cleaned_path"], 
+                     dtype={'CapitalOutstanding': 'float'},
+                     low_memory=False, 
+                     encoding='utf-8')
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        logging.error(f"Missing required columns: {missing_columns}")
+        return []
+
     results = []
 
-    for test_cfg in cfg["tests"]:
-        name = test_cfg["name"]
-        feature = test_cfg["feature"]
-        a_val = test_cfg["group_a"]
-        b_val = test_cfg["group_b"]
-        kpi = test_cfg["kpi"]
-        test_type = test_cfg["test"]
+    for test in cfg["tests"]:
+        name = test["name"]
+        kpi = test["kpi"]
+        logging.info(f"Running test: {name} on KPI: {kpi}")
 
-        # 1. Prepare data & KPI
-        df_kpi = compute_kpi(df, kpi)
-        df_a, df_b = ab_segment(df_kpi, feature, a_val, b_val)
+        # Segment the data
+        try:
+            df_a, df_b = ab_segment(df, test["feature"], test["group_a"], test["group_b"])
+        except (KeyError, ValueError) as e:
+            logging.warning(f"Skipping {name}: Segmentation failed - {str(e)}")
+            continue
 
-        # 2. Optional balance check
-        if "covariates" in test_cfg:
-            balance = ensure_balance(df_a, df_b, test_cfg["covariates"])
-            logging.info("Balance for %s:\n%s", name, balance)
+        # Balance check
+        covariates = test.get("covariates", [])
+        if covariates:
+            balance_df = ensure_balance(df_a, df_b, covariates)
+            if balance_df.empty or 'p_value' not in balance_df.columns:
+                logging.warning(f"Skipping {name}: Balance check failed or no valid covariates found")
+                continue
+            imbalance_df = flag_imbalances(balance_df, threshold=0.05)
+            if not imbalance_df.empty:
+                logging.warning(f"Skipping {name}: Imbalance detected in covariates:\n{imbalance_df}")
+                continue
 
-        # 3. Select test function
-        test_fn = TEST_MAP.get(test_type)
-        if test_fn is None:
-            raise ValueError(f"Test type {test_type} not supported")
-
-        # 4. Run test
+        # Calculate KPI for each group
         if kpi == "frequency":
-            stat, p = test_fn(df_a, df_b, "has_claim")
+            kpi_a = calculate_claim_frequency(df_a)
+            kpi_b = calculate_claim_frequency(df_b)
+        elif kpi == "severity":
+            kpi_a = calculate_claim_severity(df_a)
+            kpi_b = calculate_claim_severity(df_b)
+        elif kpi == "margin":
+            kpi_a = calculate_margin(df_a)
+            kpi_b = calculate_margin(df_b)
+        elif kpi == "loss_ratio":
+            kpi_a = calculate_loss_ratio(df_a)
+            kpi_b = calculate_loss_ratio(df_b)
         else:
-            stat, p = test_fn(df_a, df_b, kpi if kpi != "severity" else "TotalClaims")
+            logging.error(f"Unsupported KPI: {kpi}")
+            continue
 
-        # 5. Decision
-        decision = "Reject H0" if p < cfg.get("alpha", 0.05) else "Fail to reject H0"
+        logging.info(f"{name} - KPI (A): {kpi_a:.4f}, KPI (B): {kpi_b:.4f}")
 
+        # Run statistical test
+        stat, p_value = run_test(df_a, df_b, test["test"], kpi)
         results.append({
             "name": name,
-            "feature": feature,
-            "group_A": a_val,
-            "group_B": b_val,
             "kpi": kpi,
-            "test": test_type,
-            "statistic": round(float(stat), 4),
-            "p_value": round(float(p), 4),
-            "decision": decision,
+            "statistic": stat,
+            "p_value": p_value,
+            "alpha": cfg["alpha"]
         })
 
-    return pd.DataFrame(results)
+        logging.info(f"{name}: p = {p_value:.4f}, {'Reject H₀' if p_value < cfg['alpha'] else 'Fail to Reject H₀'}")
 
+    return results
 
-def write_markdown(df: pd.DataFrame, out_path: Path) -> None:
-    """
-    Write the summary DataFrame to a Markdown table.
-    """
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write("# Task 3 – Hypothesis Testing Summary\n\n")
-        f.write(df.to_markdown(index=False))
-        f.write("\n\n")
-        f.write("**Decision rule:** Reject H₀ if p < 0.05.\n")
-
-
-def main(args):
-    # Setup logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-
-    # Load config
-    cfg = load_config(Path(args.config))
-
-    # Load cleaned data
-    df = pd.read_csv(cfg["data"]["cleaned_path"])
-
-    # Run tests
-    summary = run_tests(cfg, df)
-    logging.info("Completed %d hypothesis tests", len(summary))
-
-    # Write report
-    out_md = Path(cfg["reports"]["summary_md"])
-    out_md.parent.mkdir(parents=True, exist_ok=True)
-    write_markdown(summary, out_md)
-    logging.info("Hypothesis summary written to %s", out_md)
-
+def main():
+    """Main function to execute hypothesis testing."""
+    config_path = "configs/hypothesis_config.yaml"
+    try:
+        cfg = load_config(config_path)
+        logging.info(f"Starting hypothesis tests using: {config_path}")
+        results = run_tests(cfg)
+        write_markdown_summary(results, cfg["reports"]["summary_md"])
+        logging.info(f"Completed {len(results)} hypothesis tests")
+    except Exception as e:
+        logging.error(f"Execution failed: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run ACIS hypothesis tests")
-    parser.add_argument(
-        "--config",
-        default="configs/hypothesis_config.yaml",
-        help="Path to hypothesis testing YAML config",
-    )
-    main(parser.parse_args())
+    main()

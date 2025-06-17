@@ -1,54 +1,181 @@
-import numpy as np
 import pandas as pd
-from scipy import stats
+import numpy as np
+from scipy.stats import chi2_contingency, ttest_ind, mannwhitneyu
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
-def chi2_test_counts(df_a: pd.DataFrame, df_b: pd.DataFrame, column: str) -> tuple[float, float]:
+def chi2_test(df_a, df_b, kpi):
     """
-    Perform a chi-squared test of independence on counts of a binary column (e.g., has_claim).
-    Returns (chi2_stat, p_value).
-    """
-    counts = pd.DataFrame({
-        "A": df_a[column].value_counts(),
-        "B": df_b[column].value_counts()
-    }).fillna(0).astype(int)
-    chi2, p, _, _ = stats.chi2_contingency(counts)
-    return chi2, p
+    Perform chi-squared test for categorical KPI (e.g., claim presence).
 
+    Args:
+        df_a (pd.DataFrame): DataFrame for Group A.
+        df_b (pd.DataFrame): DataFrame for Group B.
+        kpi (str): KPI to test (e.g., "frequency").
 
-def two_proportion_z_test(df_a: pd.DataFrame, df_b: pd.DataFrame, column: str) -> tuple[float, float]:
-    """
-    Perform a two-proportion z-test for a binary outcome column.
-    Returns (z_stat, p_value).
-    """
-    # successes and trials
-    n_a = len(df_a)
-    n_b = len(df_b)
-    x_a = df_a[column].sum()
-    x_b = df_b[column].sum()
-    p_pool = (x_a + x_b) / (n_a + n_b)
-    z = (x_a/n_a - x_b/n_b) / np.sqrt(p_pool*(1-p_pool)*(1/n_a + 1/n_b))
-    p = 2 * (1 - stats.norm.cdf(abs(z)))
-    return z, p
+    Returns:
+        tuple[float, float]: (statistic, p_value) or (nan, nan) if test fails.
 
+    Notes:
+        Tests claim frequency (TotalClaims > 0) across groups.
+        Returns NaN if 'TotalClaims' is missing, sample size is too small (< 30), or contingency fails.
+    """
+    if 'TotalClaims' not in df_a.columns or 'TotalClaims' not in df_b.columns:
+        logging.warning("Missing 'TotalClaims' column in one or both groups.")
+        return float('nan'), float('nan')
+    
+    if len(df_a) < 30 or len(df_b) < 30:
+        logging.warning(f"Small sample size: Group A ({len(df_a)}), Group B ({len(df_b)})")
+        return float('nan'), float('nan')
 
-def welchs_t_test(df_a: pd.DataFrame, df_b: pd.DataFrame, column: str) -> tuple[float, float]:
-    """
-    Perform Welch's t-test on a continuous column.
-    Returns (t_stat, p_value).
-    """
-    t, p = stats.ttest_ind(df_a[column].dropna(),
-                            df_b[column].dropna(),
-                            equal_var=False)
-    return t, p
+    has_claim_a = (df_a['TotalClaims'] > 0).astype(int)
+    has_claim_b = (df_b['TotalClaims'] > 0).astype(int)
 
+    count_a = has_claim_a.value_counts().reindex([0, 1], fill_value=0)
+    count_b = has_claim_b.value_counts().reindex([0, 1], fill_value=0)
 
-def mann_whitney_u(df_a: pd.DataFrame, df_b: pd.DataFrame, column: str) -> tuple[float, float]:
+    contingency = pd.DataFrame([count_a, count_b], index=["A", "B"])
+
+    try:
+        statistic, p_value, _, _ = chi2_contingency(contingency)
+        logging.info(f"Chi-squared test: statistic={statistic:.4f}, p={p_value:.4f}")
+        return statistic, p_value
+    except Exception as e:
+        logging.error(f"Chi-squared test failed: {e}")
+        return float('nan'), float('nan')
+
+def ttest(df_a, df_b, kpi):
     """
-    Perform Mann-Whitney U test (non-parametric) on a continuous column.
-    Returns (u_stat, p_value).
+    Perform t-test for numerical KPIs (e.g., severity, margin, loss_ratio).
+
+    Args:
+        df_a (pd.DataFrame): DataFrame for Group A.
+        df_b (pd.DataFrame): DataFrame for Group B.
+        kpi (str): KPI to test (e.g., "severity", "margin", "loss_ratio").
+
+    Returns:
+        tuple[float, float]: (statistic, p_value) or (nan, nan) if test fails.
+
+    Notes:
+        Returns NaN if required columns are missing, sample size is too small (< 30),
+        no claims exist for severity, or zero/negative premiums for loss_ratio.
     """
-    u, p = stats.mannwhitneyu(df_a[column].dropna(),
-                              df_b[column].dropna(),
-                              alternative="two-sided")
-    return u, p
+    if len(df_a) < 30 or len(df_b) < 30:
+        logging.warning(f"Small sample size: Group A ({len(df_a)}), Group B ({len(df_b)})")
+        return float('nan'), float('nan')
+
+    try:
+        if kpi == "severity":
+            data_a = df_a[df_a['TotalClaims'] > 0]['TotalClaims']
+            data_b = df_b[df_b['TotalClaims'] > 0]['TotalClaims']
+            if len(data_a) == 0 or len(data_b) == 0:
+                logging.warning("No claim data for severity in one or both groups.")
+                return float('nan'), float('nan')
+        elif kpi == "margin":
+            data_a = df_a['TotalPremium'] - df_a['TotalClaims']
+            data_b = df_b['TotalPremium'] - df_b['TotalClaims']
+        elif kpi == "loss_ratio":
+            if 'TotalClaims' not in df_a.columns or 'TotalPremium' not in df_a.columns or \
+               'TotalClaims' not in df_b.columns or 'TotalPremium' not in df_b.columns:
+                logging.warning("Missing 'TotalClaims' or 'TotalPremium' column in one or both groups.")
+                return float('nan'), float('nan')
+            if (df_a['TotalPremium'] <= 0).any() or (df_b['TotalPremium'] <= 0).any():
+                logging.warning("Zero or negative 'TotalPremium' values detected.")
+                return float('nan'), float('nan')
+            data_a = df_a['TotalClaims'] / df_a['TotalPremium']
+            data_b = df_b['TotalClaims'] / df_b['TotalPremium']
+        else:
+            logging.error(f"Unsupported KPI for t-test: {kpi}")
+            return float('nan'), float('nan')
+
+        statistic, p_value = ttest_ind(data_a.dropna(), data_b.dropna(), equal_var=False)
+        logging.info(f"t-test ({kpi}): statistic={statistic:.4f}, p={p_value:.4f}")
+        return statistic, p_value
+
+    except Exception as e:
+        logging.error(f"t-test failed for {kpi}: {e}")
+        return float('nan'), float('nan')
+
+def mann_whitney_u(df_a, df_b, kpi):
+    """
+    Perform Mann-Whitney U test for non-parametric numerical KPIs (e.g., severity, loss_ratio).
+
+    Args:
+        df_a (pd.DataFrame): DataFrame for Group A.
+        df_b (pd.DataFrame): DataFrame for Group B.
+        kpi (str): KPI to test (e.g., "severity", "loss_ratio").
+
+    Returns:
+        tuple[float, float]: (statistic, p_value) or (nan, nan) if test fails.
+
+    Notes:
+        Returns NaN if required columns are missing, sample size is too small (< 30),
+        no claims exist for severity, or zero/negative premiums for loss_ratio.
+    """
+    if len(df_a) < 30 or len(df_b) < 30:
+        logging.warning(f"Small sample size: Group A ({len(df_a)}), Group B ({len(df_b)})")
+        return float('nan'), float('nan')
+
+    try:
+        if kpi == "severity":
+            data_a = df_a[df_a['TotalClaims'] > 0]['TotalClaims']
+            data_b = df_b[df_b['TotalClaims'] > 0]['TotalClaims']
+            if len(data_a) == 0 or len(data_b) == 0:
+                logging.warning("No claim data for severity in one or both groups.")
+                return float('nan'), float('nan')
+        elif kpi == "loss_ratio":
+            if 'TotalClaims' not in df_a.columns or 'TotalPremium' not in df_a.columns or \
+               'TotalClaims' not in df_b.columns or 'TotalPremium' not in df_b.columns:
+                logging.warning("Missing 'TotalClaims' or 'TotalPremium' column in one or both groups.")
+                return float('nan'), float('nan')
+            if (df_a['TotalPremium'] <= 0).any() or (df_b['TotalPremium'] <= 0).any():
+                logging.warning("Zero or negative 'TotalPremium' values detected.")
+                return float('nan'), float('nan')
+            data_a = df_a['TotalClaims'] / df_a['TotalPremium']
+            data_b = df_b['TotalClaims'] / df_b['TotalPremium']
+        else:
+            logging.error(f"Unsupported KPI for Mann-Whitney U test: {kpi}")
+            return float('nan'), float('nan')
+
+        statistic, p_value = mannwhitneyu(data_a.dropna(), data_b.dropna(), alternative='two-sided')
+        logging.info(f"Mann-Whitney U test ({kpi}): statistic={statistic:.4f}, p={p_value:.4f}")
+        return statistic, p_value
+
+    except Exception as e:
+        logging.error(f"Mann-Whitney U test failed for {kpi}: {e}")
+        return float('nan'), float('nan')
+
+def run_test(df_a, df_b, test_type, kpi):
+    """
+    Dispatch the appropriate statistical test.
+
+    Args:
+        df_a (pd.DataFrame): DataFrame for Group A.
+        df_b (pd.DataFrame): DataFrame for Group B.
+        test_type (str): Type of test ("chi2", "ttest", or "mw_u").
+        kpi (str): KPI to test (e.g., "frequency", "severity", "margin", "loss_ratio").
+
+    Returns:
+        tuple[float, float]: (statistic, p_value) or (nan, nan) if test fails.
+
+    Notes:
+        Maps test_type to the corresponding function and handles exceptions.
+        Supported KPIs: frequency (chi2), severity/margin/loss_ratio (ttest/mw_u).
+    """
+    tests = {
+        "chi2": chi2_test,
+        "ttest": ttest,
+        "mw_u": mann_whitney_u
+    }
+
+    if test_type not in tests:
+        logging.error(f"Unsupported test type: {test_type}")
+        return float('nan'), float('nan')
+
+    try:
+        return tests[test_type](df_a, df_b, kpi)
+    except Exception as e:
+        logging.error(f"Error running {test_type} on {kpi}: {e}")
+        return float('nan'), float('nan')

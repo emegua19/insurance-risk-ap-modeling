@@ -4,20 +4,21 @@ data:
   cleaned_path: "data/processed/insurance_cleaned_data.csv"
 
 tests:
-  - name: "Province LossRatio Difference"
+  - name: "Province Loss Ratio"
     feature: "Province"
     group_a: "Western Cape"
     group_b: "Gauteng"
     kpi: "loss_ratio"
     test: "ttest"
-    covariates: ["VehicleType", "CoverType"]
+    covariates: ["Age", "PlanType"]  # Added for balance check
 
-  - name: "Gender LossRatio Difference"
+  - name: "Gender Loss Ratio"
     feature: "Gender"
     group_a: "Male"
     group_b: "Female"
     kpi: "loss_ratio"
     test: "mw_u"
+    covariates: ["Age", "PlanType"]  # Added for balance check
 
   - name: "ZIP Margin Difference"
     feature: "PostalCode"
@@ -25,3 +26,7 @@ tests:
     group_b: "8000"
     kpi: "loss_ratio"
     test: "ttest"
+    covariates: ["Age", "PlanType"]  # Added for balance check
+
+reports:
+  summary_md: "reports/task_3_hypothesis_summary.md"  # Updated path

@@ -2,11 +2,14 @@
 import os
 import pandas as pd
 from typing import Optional, List, Union
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 class DataCleaner:
     """
-    Basic data‑cleaning utility.
+    Basic data-cleaning utility.
 
     Responsibilities
     ----------------
@@ -14,6 +17,7 @@ class DataCleaner:
     2. Impute missing values (numeric → median, categorical → mode)
     3. Provide cleaned DataFrame for downstream tasks
     4. (Optional) Save cleaned data to CSV via a separate method
+    5. Handle specific data quality issues (e.g., zero/negative premiums, mixed types)
     """
 
     def __init__(self, processed_output_file: str) -> None:
@@ -43,6 +47,7 @@ class DataCleaner:
         self.df = df.copy(deep=True)  # work on a copy to preserve original
         self._standardise_types()
         self._impute_missing()
+        self._handle_specific_issues()  # New method for targeted fixes
         return self.df
 
     def save_cleaned_data(self) -> None:
@@ -56,7 +61,7 @@ class DataCleaner:
         processed_dir = os.path.dirname(self.processed_output_file)
         os.makedirs(processed_dir, exist_ok=True)
         self.df.to_csv(self.processed_output_file, index=False)
-        print(f"[INFO] Cleaned data saved → {self.processed_output_file}")
+        logging.info(f"Cleaned data saved → {self.processed_output_file}")
 
     def get_cleaned_data(self) -> pd.DataFrame:
         """
@@ -78,7 +83,8 @@ class DataCleaner:
         """
         Standardise common column types:
         - Dates → pandas datetime
-        - Boolean‑like strings → bool
+        - Boolean-like strings → bool
+        - Numeric strings (e.g., CapitalOutstanding) → float
         """
         # Convert TransactionMonth (if present) to datetime
         if "TransactionMonth" in self.df.columns:
@@ -101,6 +107,15 @@ class DataCleaner:
                 .str.lower()
                 .map({"yes": True, "true": True, "no": False, "false": False})
             )
+
+        # Convert numeric-like strings to float (e.g., CapitalOutstanding)
+        numeric_like_cols = ['CapitalOutstanding']  # Add other columns as needed
+        for col in numeric_like_cols:
+            if col in self.df.columns and self.df[col].dtype == object:
+                self.df[col] = pd.to_numeric(
+                    self.df[col].str.replace(',', ''),  # Remove commas
+                    errors='coerce'  # Convert non-numeric to NaN
+                )
 
     def _impute_missing(self) -> None:
         """
@@ -126,3 +141,33 @@ class DataCleaner:
         # Boolean: default to False
         for col in bool_cols:
             self.df[col].fillna(False, inplace=True)
+
+    def _handle_specific_issues(self) -> None:
+        """
+        Handle specific data quality issues:
+        - Filter out rows with zero or negative TotalPremium
+        - Ensure covariate columns (e.g., Age, PlanType) are present or mapped
+        """
+        # Filter out zero or negative TotalPremium
+        if 'TotalPremium' in self.df.columns:
+            initial_rows = len(self.df)
+            self.df = self.df[self.df['TotalPremium'] > 0]
+            removed_rows = initial_rows - len(self.df)
+            if removed_rows > 0:
+                logging.info(f"Removed {removed_rows} rows with zero/negative TotalPremium")
+
+        # Validate or map covariate columns (e.g., Age, PlanType)
+        expected_covariates = {'Age', 'PlanType'}  # Adjust based on your data
+        present_covariates = set(self.df.columns) & expected_covariates
+        missing_covariates = expected_covariates - present_covariates
+        if missing_covariates:
+            logging.warning(f"Missing covariates: {missing_covariates}. Check column names or data.")
+        for cov in present_covariates:
+            if self.df[cov].dtype in ['int64', 'float64']:
+                continue  # Numeric types are fine
+            elif self.df[cov].dtype == 'object':
+                self.df[cov] = pd.to_numeric(self.df[cov], errors='coerce')
+                if self.df[cov].isna().all():
+                    logging.warning(f"Covariate {cov} contains no valid numeric data after conversion.")
+            else:
+                logging.warning(f"Covariate {cov} has unexpected type: {self.df[cov].dtype}")
