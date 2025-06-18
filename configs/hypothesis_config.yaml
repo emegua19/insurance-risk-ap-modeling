@@ -1,32 +1,32 @@
-alpha: 0.05
+alpha: 0.05           # significance threshold
 
 data:
   cleaned_path: "data/processed/insurance_cleaned_data.csv"
 
 tests:
-  - name: "Province Loss Ratio"
+  # 1 Province difference (margin)
+  - name: "Province Margin"
     feature: "Province"
-    group_a: "Western Cape"
-    group_b: "Gauteng"
-    kpi: "loss_ratio"
+    group_a: "Gauteng"
+    group_b: "Western Cape"
+    kpi: "margin"
     test: "ttest"
-    covariates: ["Age", "PlanType"]  # Added for balance check
 
-  - name: "Gender Loss Ratio"
+  # 2 Gender margin
+  - name: "Gender Margin"
     feature: "Gender"
     group_a: "Male"
     group_b: "Female"
-    kpi: "loss_ratio"
+    kpi: "margin"
     test: "mw_u"
-    covariates: ["Age", "PlanType"]  # Added for balance check
 
-  - name: "ZIP Margin Difference"
+  # 3 PostalCode margin
+  - name: "PostalCode Margin"
     feature: "PostalCode"
     group_a: "1459"
     group_b: "8000"
-    kpi: "loss_ratio"
+    kpi: "margin"
     test: "ttest"
-    covariates: ["Age", "PlanType"]  # Added for balance check
 
 reports:
-  summary_md: "reports/task_3_hypothesis_summary.md"  # Updated path
+  summary_md: "reports/task_3_hypothesis_summary.md"
