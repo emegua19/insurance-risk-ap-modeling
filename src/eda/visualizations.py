@@ -1,59 +1,56 @@
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-import os
+import pandas as pd
 
 class Visualizations:
-    def __init__(self, df, output_dir="outputs/eda/plots"):
-        self.df = df
+    """Produce univariate and creative EDA plots."""
+
+    def __init__(self, df: pd.DataFrame, output_dir: str):
+        self.df = df.copy()
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def plot_histogram(self, column):
-        """Plot histogram for numerical columns."""
+    def plot_histogram(self, column: str):
         plt.figure(figsize=(8, 4))
         sns.histplot(self.df[column].dropna(), kde=True)
         plt.title(f"Distribution of {column}")
-        plt.savefig(os.path.join(self.output_dir, f"histogram_{column}.png"))
+        plt.savefig(os.path.join(self.output_dir, f"hist_{column}.png"))
         plt.close()
 
-    def plot_bar_chart(self, column):
-        """Plot bar chart for categorical columns."""
+    def plot_bar_chart(self, column: str):
         plt.figure(figsize=(10, 5))
-        sns.countplot(data=self.df, x=column, order=self.df[column].value_counts().index)
+        order = self.df[column].value_counts().index
+        sns.countplot(data=self.df, x=column, order=order)
         plt.xticks(rotation=45)
-        plt.title(f"Bar Chart of {column}")
-        plt.savefig(os.path.join(self.output_dir, f"bar_chart_{column}.png"))
+        plt.title(f"{column} Counts")
+        plt.savefig(os.path.join(self.output_dir, f"bar_{column}.png"))
         plt.close()
 
-    def plot_boxplot(self, column):
-        """Plot boxplot to detect outliers in numerical data."""
+    def plot_boxplot(self, column: str):
         plt.figure(figsize=(8, 4))
-        sns.boxplot(x=self.df[column])
+        sns.boxplot(x=self.df[column].dropna())
         plt.title(f"Boxplot of {column}")
-        plt.savefig(os.path.join(self.output_dir, f"boxplot_{column}.png"))
+        plt.savefig(os.path.join(self.output_dir, f"box_{column}.png"))
         plt.close()
 
-    def create_insight_plots(self):
-        """Generate 3 creative plots capturing key EDA insights."""
-        # Plot 1: Average TotalPremium by Province
-        plt.figure(figsize=(10, 6))
-        sns.barplot(x='Province', y='TotalPremium', data=self.df, estimator='mean')
-        plt.xticks(rotation=45)
-        plt.title('Average TotalPremium by Province')
-        plt.savefig(os.path.join(self.output_dir, "avg_premium_by_province.png"))
-        plt.close()
+    def create_insight_plots(self, viz_cfg: dict):
+        # Add LossRatio
+        self.df["LossRatio"] = self.df["TotalClaims"] / self.df["TotalPremium"]
+        for spec in viz_cfg.get("insight_plots", []):
+            kind = spec["kind"]
+            name = spec["name"]
+            plt.figure(figsize=(10, 6))
 
-        # Plot 2: TotalClaims vs TotalPremium by VehicleType
-        plt.figure(figsize=(10, 6))
-        sns.scatterplot(x='TotalPremium', y='TotalClaims', hue='VehicleType', data=self.df)
-        plt.title('TotalClaims vs TotalPremium by VehicleType')
-        plt.savefig(os.path.join(self.output_dir, "claims_vs_premium_by_vehicle.png"))
-        plt.close()
+            if kind == "bar":
+                data = self.df.groupby(spec["x"])[spec["y"]].agg(spec["agg"]).reset_index()
+                sns.barplot(x=spec["x"], y=spec["y"], data=data)
+            elif kind == "scatter":
+                sns.scatterplot(x=spec["x"], y=spec["y"], hue=spec.get("hue"), data=self.df)
+            elif kind == "box":
+                sns.boxplot(x=spec["x"], y=spec["y"], data=self.df)
 
-        # Plot 3: LossRatio Distribution by Gender
-        self.df['LossRatio'] = self.df['TotalClaims'] / (self.df['TotalPremium'] + 1e-6)
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(x='Gender', y='LossRatio', data=self.df)
-        plt.title('LossRatio Distribution by Gender')
-        plt.savefig(os.path.join(self.output_dir, "loss_ratio_by_gender.png"))
-        plt.close()
+            plt.title(name.replace("_", " ").title())
+            plt.xticks(rotation=45)
+            plt.savefig(os.path.join(self.output_dir, f"{name}.png"))
+            plt.close()
