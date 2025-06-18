@@ -29,14 +29,14 @@ bodytype,object
 NumberOfDoors,float64
 VehicleIntroDate,object
 CustomValueEstimate,float64
-AlarmImmobiliser,bool
-TrackingDevice,bool
+AlarmImmobiliser,object
+TrackingDevice,object
 CapitalOutstanding,object
 NewVehicle,object
-WrittenOff,bool
-Rebuilt,bool
-Converted,bool
-CrossBorder,bool
+WrittenOff,object
+Rebuilt,object
+Converted,object
+CrossBorder,object
 NumberOfVehiclesInFleet,float64
 SumInsured,float64
 TermFrequency,object
@@ -51,3 +51,4 @@ StatutoryClass,object
 StatutoryRiskType,object
 TotalPremium,float64
 TotalClaims,float64
+ClaimOccurred,int32

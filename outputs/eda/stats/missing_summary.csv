@@ -1,4 +1,4 @@
-,Missing,Percent
+,missing_count,missing_pct
 UnderwrittenCoverID,0,0.0
 PolicyID,0,0.0
 TransactionMonth,0,0.0
@@ -37,7 +37,7 @@ WrittenOff,0,0.0
 Rebuilt,0,0.0
 Converted,0,0.0
 CrossBorder,0,0.0
-NumberOfVehiclesInFleet,1000098,100.0
+NumberOfVehiclesInFleet,617510,100.0
 SumInsured,0,0.0
 TermFrequency,0,0.0
 CalculatedPremiumPerTerm,0,0.0
@@ -51,3 +51,4 @@ StatutoryClass,0,0.0
 StatutoryRiskType,0,0.0
 TotalPremium,0,0.0
 TotalClaims,0,0.0
+ClaimOccurred,0,0.0

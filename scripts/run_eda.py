@@ -1,11 +1,11 @@
+#!scripts/run_eda.py
 """
 scripts/run_eda.py
-Run the ACIS EDA pipeline using YAML configuration + structured logging.
+Run the ACIS EDA pipeline with rich console output.
 
 Usage:
     python scripts/run_eda.py --config configs/eda_config.yaml
 """
-
 from __future__ import annotations
 import argparse
 import logging
@@ -13,131 +13,101 @@ from pathlib import Path
 import yaml
 import os
 import sys
-# ---------------- internal imports ---------------- #
-from src.utils.data_loader import DataLoader          # updated loader
+import pandas as pd
+
+# ------------------------------------------------------------------ #
+# Import project modules (add src to path)
+# ------------------------------------------------------------------ #
+sys.path.append(os.path.abspath(os.path.join(__file__, "..", "..")))
+from src.utils.data_loader import DataLoader
 from src.data_processing.data_cleaning import DataCleaner
 from src.eda.descriptive_stats import DescriptiveStats
 from src.eda.visualizations import Visualizations
 from src.eda.correlation import Correlation
-# -------------------------------------------------- #
-
-# make src importable
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # ------------------------------------------------------------------ #
-# Helper functions                                                   #
-# ------------------------------------------------------------------ #
+
+
+# ------------------------- Helper functions ------------------------ #
 def load_yaml(path: str | Path) -> dict:
-    """Load YAML configuration file with error handling."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Configuration file not found: {path}")
-    except yaml.YAMLError as e:
-        raise ValueError(f"Error parsing YAML file {path}: {e}")
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
-def setup_logger(log_path: Path, level: int = logging.INFO) -> None:
-    """Configure console + file logging."""
+
+def setup_logger(log_path: Path) -> logging.Logger:
     fmt = "%(asctime)s - %(levelname)s - %(message)s"
     logging.basicConfig(
-        level=level,
+        level=logging.INFO,
         format=fmt,
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(log_path, mode="w", encoding="utf-8"),
+            logging.FileHandler(log_path, mode="w"),
         ],
     )
+    return logging.getLogger(__name__)
+# ------------------------------------------------------------------ #
 
-# ------------------------------------------------------------------ #
-# Main pipeline                                                      #
-# ------------------------------------------------------------------ #
+
 def main(cfg_path: str) -> None:
+    # --------------------- Load configuration ---------------------- #
     cfg = load_yaml(cfg_path)
-    base_output_dir = Path(cfg["general"]["base_output_dir"])
-    plots_output_dir = Path(cfg["general"]["plots_output_dir"])
-    base_output_dir.mkdir(parents=True, exist_ok=True)
-    plots_output_dir.mkdir(parents=True, exist_ok=True)
+    base_dir = Path(cfg["general"]["base_output_dir"])
+    plot_dir = Path(cfg["general"]["plots_output_dir"])
+    base_dir.mkdir(parents=True, exist_ok=True)
+    plot_dir.mkdir(parents=True, exist_ok=True)
 
-    setup_logger(base_output_dir / "eda_pipeline.log")
-    log = logging.getLogger(__name__)
+    log = setup_logger(base_dir / "eda_pipeline.log")
+    log.info("=== Starting EDA pipeline ===")
 
-    # ------------------------------------------------------------------ #
-    # 1. Load raw data
-    # ------------------------------------------------------------------ #
+    # ------------------------- 1. LOAD DATA ------------------------ #
     ld_cfg = cfg["data_loader"]
-    loader = DataLoader(ld_cfg["input_dir"], delimiter=ld_cfg["delimiter"])
-    file_path = os.path.join(ld_cfg["input_dir"], ld_cfg["filename"])
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Input file not found: {file_path}")
-
-    # Specify dtype for CapitalOutstanding to avoid DtypeWarning
-    dtype = {'CapitalOutstanding': 'float'}  # Add other columns as needed
-    df = (
-        loader.load_txt(ld_cfg["filename"], convert_to_csv=True, dtype=dtype)
+    loader = DataLoader(ld_cfg["input_dir"], ld_cfg["delimiter"])
+    df_raw = (
+        loader.load_txt(ld_cfg["filename"])
         if ld_cfg["file_type"] == "txt"
-        else loader.load_csv(ld_cfg["filename"], dtype=dtype)
+        else loader.load_csv(ld_cfg["filename"])
     )
-    log.info("Raw data loaded: %s rows × %s cols", *df.shape)
-    print("\n=== RAW SAMPLE ===")
-    print(df.head(3))
+    log.info("Raw data loaded: %s", df_raw.shape)
 
-    # ------------------------------------------------------------------ #
-    # 2. Clean data
-    # ------------------------------------------------------------------ #
+    print("\n=== RAW DATA SAMPLE ===")
+    print(df_raw.head())
+
+    # ------------------------- 2. CLEAN DATA ----------------------- #
     cl_cfg = cfg["data_cleaner"]
-    # Ensure output path matches hypothesis testing input
-    output_path = "data/processed/insurance_cleaned_data.csv"
-    cleaner = DataCleaner(output_path)
-    df_clean = cleaner.clean_data(df)
+    cleaner = DataCleaner(cl_cfg["output_path"])
+    df_clean = cleaner.clean_data(df_raw)
     cleaner.save_cleaned_data()
-    log.info("Cleaned data saved -> %s", output_path)
-    print("\n=== CLEANED SAMPLE ===")
-    print(df_clean.head(3))
+    log.info("Cleaned data saved -> %s", cl_cfg["output_path"])
 
-    # Validate covariate columns
-    expected_covariates = {'Age', 'PlanType'}  # Adjust based on config or needs
-    present_covariates = set(df_clean.columns) & expected_covariates
-    missing_covariates = expected_covariates - present_covariates
-    if missing_covariates:
-        log.warning(f"Missing expected covariates: {missing_covariates}. Check data or config.")
-    for cov in present_covariates:
-        log.info(f"Covariate {cov} found with type: {df_clean[cov].dtype}")
-
-    # ------------------------------------------------------------------ #
-    # 3. Descriptive statistics
-    # ------------------------------------------------------------------ #
+    # ------------------- 3. DESCRIPTIVE STATS ---------------------- #
     stats = DescriptiveStats(df_clean)
-    (base_output_dir / "stats").mkdir(exist_ok=True)
-    stats.basic_summary().to_csv(
-        base_output_dir / "stats" / "basic_summary.csv")
-    
-    stats.review_data_structure().to_csv(
-        base_output_dir / "stats" / "dtypes.csv")
-    
-    stats.missing_summary().to_csv(
-        base_output_dir / "stats" / "missing_summary.csv")
-    
-    log.info("Descriptive stats exported")
+    stats_dir = base_dir / "stats"
+    stats_dir.mkdir(exist_ok=True)
 
-    # >>> PRINT key summaries to console
-    print("\n=== SUMMARY STATS (numerical) ===")
-    print(stats.basic_summary().loc[["mean", "std", "min", "max"]])
+    # Save CSV summaries
+    stats.basic_summary().to_csv(stats_dir / "basic_summary.csv")
+    stats.review_data_structure().to_csv(stats_dir / "dtypes.csv")
+    stats.missing_summary().to_csv(stats_dir / "missing_summary.csv")
+    log.info("Descriptive statistics exported")
 
-    print("\n=== MISSING VALUES (top 10) ===")
-    print(
+    # --- Print key stats to console
+    numeric_summary = stats.basic_summary().loc[["mean", "std", "min", "50%", "max"]]
+    print("\n=== BASIC SUMMARY (numeric) ===")
+    print(numeric_summary)
+
+    miss_top10 = (
         stats.missing_summary()
-        .sort_values("Missing", ascending=False)
+        .sort_values("missing_count", ascending=False)
         .head(10)
     )
+    print("\n=== TOP‑10 MISSING VALUES ===")
+    print(miss_top10)
 
-    # ------------------------------------------------------------------ #
-    # 4. Visualisations
-    # ------------------------------------------------------------------ #
+    # -------------------- 4. VISUALISATIONS ----------------------- #
     viz_cfg = cfg["visualisations"]
-    viz = Visualizations(df_clean, output_dir=plots_output_dir)
+    viz = Visualizations(df_clean, str(plot_dir))
 
-    # 4A. Histograms, bar charts, box plots
+    # Univariate
     for col in viz_cfg.get("histograms", []):
         viz.plot_histogram(col)
     for col in viz_cfg.get("bar_charts", []):
@@ -145,32 +115,28 @@ def main(cfg_path: str) -> None:
     for col in viz_cfg.get("box_plots", []):
         viz.plot_boxplot(col)
 
-    # 4B. Insight / creative plots
-    for spec in viz_cfg.get("insight_plots", []):
-        viz.create_insight_plots()
+    # Insight / creative plots
+    viz.create_insight_plots(viz_cfg)
+    log.info("Visualisations generated -> %s", plot_dir)
 
-    log.info("Visualisations generated -> %s", plots_output_dir)
-    print("Plots saved to:", plots_output_dir)
-
-    # ------------------------------------------------------------------ #
-    # 5. Correlation & geographic trends
-    # ------------------------------------------------------------------ #
-    corr = Correlation(df_clean)
+    # -------------------- 5. CORRELATION -------------------------- #
+    corr = Correlation(df_clean, str(plot_dir))
     corr_matrix = corr.explore_correlations()
-    corr_matrix.to_csv(base_output_dir / "stats" / "correlation_matrix.csv")
-    corr.scatter_plots_by_geo(viz_cfg.get("geo_column", "Province"))
-    corr.trends_over_geography()
+    corr_matrix.to_csv(stats_dir / "correlation_matrix.csv")
 
-    # >>> PRINT correlation snippet
-    print("\n=== CORRELATION (first 5 cols) ===")
+    # Print first 5×5 slice
+    print("\n=== CORRELATION (first 5×5 block) ===")
     print(corr_matrix.iloc[:5, :5])
 
-    log.info("=== EDA pipeline finished successfully ===")
+    corr.scatter_plots_by_geo(viz_cfg.get("geo_column", "Province"))
+    log.info("Correlation analysis completed")
+
+    log.info("=== EDA pipeline finished ===")
+    print(f"\nPlots saved to: {plot_dir}\n")
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run ACIS EDA pipeline")
-    parser.add_argument(
-        "--config", default="configs/eda_config.yaml",
-        help="Path to YAML configuration file")
-    main(parser.parse_args().config)
+    parser = argparse.ArgumentParser(description="Run ACIS EDA pipeline with console output")
+    parser.add_argument("--config", default="configs/eda_config.yaml", help="Path to YAML config")
+    args = parser.parse_args()
+    main(args.config)
