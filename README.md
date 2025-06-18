@@ -1,226 +1,134 @@
+# Insurance Risk Analytics & Predictive Modeling <wbr/>(10 Academy – Week 3)
 
-# Insurance Risk Analytics & Predictive Modeling
-
-## Project Overview
-
-This repository contains the codebase and resources for the **10 Academy: Artificial Intelligence Mastery** project focused on **End-to-End Insurance Risk Analytics & Predictive Modeling** for **AlphaCare Insurance Solutions (ACIS)**.
-
-**Project Goal:**
-Analyze historical car insurance claim data (Feb 2014–Aug 2015) to:
-- Identify low-risk segments
-- Optimize premiums
-- Inform marketing strategies in South Africa
+Predictive, data‑driven pricing for **AlphaCare Insurance Solutions (ACIS)** using historical auto‑insurance data (Feb 2014 – Aug 2015, ≈ 1 M records).
 
 ---
 
-## Project Tasks
+##  Project Milestones
 
-| Task   | Description                     | Status      |
-| ------ | ------------------------------- | ----------- |
-| Task 1 | Exploratory Data Analysis (EDA) | ✅ Completed |
-| Task 2 | Data Version Control (DVC)      | ✅ Completed |
-| Task 3 | A/B Hypothesis Testing          | 🔜 Upcoming |
-| Task 4 | Predictive Modeling             | 🔜 Upcoming |
+| Task       | Deliverable                                  | Status     |
+| ---------- | -------------------------------------------- | ---------- |
+| **Task 1** | Data loading, cleaning & rich EDA plots      | **✅ Done** |
+| **Task 2** | DVC tracking of raw/processed data           | **✅ Done** |
+| **Task 3** | A/B hypothesis testing & business insight    | **✅ Done** |
+| **Task 4** | Risk‑based ML models + SHAP interpretability | **✅ Done** |
 
 ---
 
-## Folder Structure
+##  Folder Layout (abridged)
 
-```txt
-insurance-risk-ap-modeling/
-├── .dvc/                     # DVC metadata
-├── .github/workflows/       # GitHub Actions CI/CD config
-│   └── ci.yml               # CI pipeline config (pytest + linting)
-├── configs/
-│   └── eda_config.yaml      # YAML config for EDA pipeline
-├── data/
-│   ├── raw/                 # Raw data (DVC-tracked)
-│   └── processed/           # Cleaned data outputs
-├── outputs/
-│   └── eda/
-│       ├── plots/           # Visualizations (histograms, boxplots, insights)
-│       ├── stats/           # Summary CSVs (dtypes, missing, correlation)
-│       └── eda_pipeline.log # Run log
-├── scripts/
-│   └── run_eda.py           # CLI script to run the EDA pipeline
-├── src/
-│   ├── data_processing/
-│   │   ├── data_cleaning.py # Missing value & type handling
-│   ├── eda/
-│   │   ├── correlation.py   # Correlation matrix, scatter by geography
-│   │   ├── descriptive_stats.py # Summary statistics & data types
-│   │   ├── visualizations.py    # Histograms, bar plots, insights
-│   ├── hypothesis_testing/  # Task 3 logic (planned)
-│   ├── modeling/            # Task 4 model logic (planned)
-│   ├── utils/
-│   │   └── data_loader.py   # Loads and converts raw text data
-├── tests/
-│   ├── test_eda.py          # Unit tests for EDA functions
-│   └── test_models.py       # Unit tests for modeling (placeholder)
-├── .dvcignore               # DVC ignore rules
-├── .gitignore               # Git ignore rules
-├── LICENSE.md               # Project license (MIT)
-├── dvc.yaml                 # (optional) DVC pipeline definition (WIP)
-├── README.md                # Project overview and instructions
-└── requirements.txt         # Python dependencies
+```
+insurance-risk-ap-modeling-w3/
+├── configs/                 # YAML configs (EDA / tests / models)
+├── data/                    # DVC‑tracked raw & processed CSVs
+├── models/                  # Saved .joblib models (classifier / regressors)
+├── outputs/eda/             # EDA plots + stats + log
+├── reports/                 # JSON metrics, SHAP PNGs, Markdown summaries
+├── scripts/                 # CLI entry points: run_eda / run_hypothesis_tests / run_modeling
+├── src/                     # Modular Python package (eda, modeling, hypothesis_testing, utils)
+├── tests/                   # Pytest unit tests (+ tiny CSV fixture)
+└── dvc.yaml / .dvc/         # Data Version Control metadata
 ```
 
+> **Full tree** shown in [`final_report.md`](reports/final_report.md).
+
 ---
 
-## ⚙️ Setup Instructions
-
-### 1. Clone the Repository
+## ⚙️ Quick‑start
 
 ```bash
-git clone https://github.com/emegua19/insurance-risk-ap-modeling
-cd insurance-risk-ap-modeling
-```
-
-### 2. Create & Activate a Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# 1. clone & create env
+git clone https://github.com/your‑org/insurance-risk-ap-modeling-w3
+cd insurance-risk-ap-modeling-w3
+python -m venv .venv && source .venv/bin/activate  # Win: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# 2. pull data (if you want the full ~400 MB CSVs)
+dvc pull                       # requires local remote or GDrive creds
+
+# 3. end‑to‑end pipelines
+python scripts/run_eda.py              --config configs/eda_config.yaml
+python scripts/run_hypothesis_tests.py --config configs/hypothesis_config.yaml
+python scripts/run_modeling.py         --config configs/modeling_config.yaml
+
+# 4. run unit tests
+pytest -q
 ```
 
-### 3. Run the EDA Pipeline
+---
+
+##  Key Results
+
+| Model                  | Metric  | Score                   |
+| ---------------------- | ------- | ----------------------- |
+| **Claim Classifier**   | ROC‑AUC | **0.9991**              |
+| **Premium Regressor**  | R²      | **0.991**  (RMSE 26.36) |
+| **Severity Regressor** | R²      | 0.313  (RMSE 31 255)    |
+
+*Full tables & SHAP plots in* **`reports/`**.
+
+---
+
+##  Top Insights (SHAP)
+
+| Risk Driver                | Effect                              |
+| -------------------------- | ----------------------------------- |
+| Older **VehicleAge**       | ↑ Severity by ≈ R 1 800 per year    |
+| **VehicleType\_Taxi**      | ↑ Claim probability                 |
+| **TrackingDevice**         | ↓ Premium & severity                |
+| **Gender\_Male**           | ↑ Margin difference (Task 3 result) |
+| **Province\_Eastern Cape** | ↑ Severity baseline                 |
+
+---
+
+##  Data Version Control (Task 2)
 
 ```bash
-python scripts/run_eda.py --config configs/eda_config.yaml
+# track new artifact
+dvc add data/processed/insurance_cleaned_data.csv
+git add data/processed/insurance_cleaned_data.csv.dvc
+git commit -m "data: track processed CSV with DVC"
+dvc push    # sync to remote storage
 ```
 
-### 4. View Outputs
-
-- Visualizations: `outputs/eda/plots/`
-- CSV Summaries: `outputs/eda/stats/`
-- Log File: `outputs/eda/eda_pipeline.log`
+CI runs on a **1 k‑row fixture** (`tests/fixtures/insurance_sample.csv`) to avoid heavy DVC pulls.
 
 ---
 
-## DVC Setup (Data Version Control)
+##  CI / Tests
 
-### Initial Setup
-- Initialize DVC and commit the configuration:
-  ```bash
-  dvc init
-  git add .dvc/ .dvcignore
-  git commit -m "Initialize DVC for Task 2"
-  ```
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push / PR:
 
-### Configure Local Remote
-- Set up a local storage directory and configure it as the default remote:
-  ```bash
-  mkdir /new/dvc-storage
-  dvc remote add -d localstorage /new/dvc-storage
-  git add .dvc/config
-  git commit -m "Configure local remote storage at /new/dvc-storage for DVC"
-  ```
+1. Install deps
+2. Download fixture CSV
+3. `pytest` (`tests/`): EDA + model sanity checks
+4. Flake8 lint
 
-### Track and Push Data
-- Track the datasets and commit the `.dvc` files:
-  ```bash
-  dvc add data/raw/MachineLearningRating_v3.csv
-  dvc add data/raw/MachineLearningRating_v3.txt
-  dvc add data/processed/insurance_cleaned_data.csv
-  git add data/raw/MachineLearningRating_v3.csv.dvc data/raw/MachineLearningRating_v3.txt.dvc data/processed/insurance_cleaned_data.csv.dvc
-  git commit -m "Track data/raw/MachineLearningRating_v3.csv, data/raw/MachineLearningRating_v3.txt, and data/processed/insurance_cleaned_data.csv with DVC"
-  dvc push
-  ```
+All tests currently **pass**:
 
-### Reproduce from Remote
-- Clone the repository and pull the data:
-  ```bash
-  git clone https://github.com/emegua19/insurance-risk-ap-modeling
-  cd insurance-risk-ap-modeling
-  dvc pull
-  ```
-
----
-
-## Git Workflow
-
-### Branching
-Create branches for each task:
-```bash
-git checkout -b task-1
-git checkout -b task-2-v2  # Updated to reflect current branch
-...
+```
+===== 8 passed in 46 s =====
 ```
 
-### Commit Example
-```bash
-git add .
-git commit -m "Add histogram visualizations for TotalPremium"
-```
+---
 
-### Pull Requests
-Open PRs from `task-*` branches into `main`.
+##  Business Recommendations
+
+1. **Age‑based pricing**: add loadings for vehicles > 10 yrs (see SHAP).
+2. **Gender segmentation**: Male policyholders show higher margin variance — adjust base rate or leverage in marketing.
+3. **Device discounts**: Incentivize `TrackingDevice` / `AlarmImmobiliser`; reduces expected severity.
+4. **Province targeting**: Eastern Cape has highest claim severity; refine underwriting or set higher deductibles.
+
+See detailed discussion in [`reports/final_report.md`](reports/final_report.md).
 
 ---
 
-## ⚙️ CI/CD with GitHub Actions
+##  Roadmap
 
-GitHub Actions runs on push/PR:
-- Runs `pytest`
+* [ ] Cross‑validation & hyper‑parameter search
+* [ ] Streamlit dashboard for underwriters
+* [ ] Incorporate external socio‑economic data
+* [ ] Tweedie / GLM for severity tail modeling
 
-### CI Config: `.github/workflows/ci.yml`
-See earlier README version for full YAML example.
 
----
 
-## Task 1: EDA Highlights
-- `DataLoader`, `DataCleaner` classes built with OOP
-- Visualizations: histograms, boxplots, bar charts, and 3 insight plots
-- Output saved in structured folders
-- Fully modular and YAML-driven
-
----
-
-## Task 2: DVC Integration
-- DVC initialized and `.dvcignore` configured
-- Local remote storage set up at `/new/dvc-storage`
-- Datasets (`data/raw/MachineLearningRating_v3.csv`, `data/raw/MachineLearningRating_v3.txt`, `data/processed/insurance_cleaned_data.csv`) tracked with `.dvc` files
-- Data pushed to `/new/dvc-storage`
-- `.gitignore` updated to exclude data files while allowing `.dvc` tracking
-
----
-
-## Upcoming Tasks
-
-### Task 3: Hypothesis Testing (Planned)
-- Statistical validation (t-tests, chi-square)
-- YAML-driven test config
-- Results saved as reports or plots
-- Code in `src/hypothesis_testing/`
-
----
-
-## Task 4: Predictive Modeling & Risk-Based Pricing
-
-We developed three machine learning models to support risk-adjusted premium optimization:
-
-| Model              | Purpose                            | Metric     | Score   |
-|--------------------|------------------------------------|------------|---------|
-| Classifier         | Predict probability of a claim     | ROC-AUC    | 0.9991  |
-| Premium Regressor  | Predict calculated premium amount  | R²         | 0.991   |
-| Severity Regressor | Predict TotalClaims (if occurred)  | R²         | 0.313   |
-
-All models are trained, evaluated, saved (`models/`)
-SHAP analysis identified top risk drivers across all models (see `reports/shap_*.png`).
-Full model comparison: [`model_comparison.md`](reports/model_comparison.md)
-
----
-
-## Next Steps
-- Merge `task-2-v2` to `main`
-- Start `task-3` on June 15, 2025
-- Submit GitHub repo by **June 15, 2025, 5:00 PM EAT**
-
----
-
-## Testing
-Run tests:
-```bash
-pytest tests/
-```
