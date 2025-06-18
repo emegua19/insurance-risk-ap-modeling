@@ -194,11 +194,21 @@ See earlier README version for full YAML example.
 - Results saved as reports or plots
 - Code in `src/hypothesis_testing/`
 
-### Task 4: Predictive Modeling (Planned)
-- Model training on cleaned data
-- Evaluation metrics
-- DVC model tracking
-- Code in `src/modeling/` and `scripts/train_models.py`
+---
+
+## Task 4: Predictive Modeling & Risk-Based Pricing
+
+We developed three machine learning models to support risk-adjusted premium optimization:
+
+| Model              | Purpose                            | Metric     | Score   |
+|--------------------|------------------------------------|------------|---------|
+| Classifier         | Predict probability of a claim     | ROC-AUC    | 0.9991  |
+| Premium Regressor  | Predict calculated premium amount  | R²         | 0.991   |
+| Severity Regressor | Predict TotalClaims (if occurred)  | R²         | 0.313   |
+
+All models are trained, evaluated, saved (`models/`)
+SHAP analysis identified top risk drivers across all models (see `reports/shap_*.png`).
+Full model comparison: [`model_comparison.md`](reports/model_comparison.md)
 
 ---
 
