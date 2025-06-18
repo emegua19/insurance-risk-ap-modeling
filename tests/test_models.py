@@ -1,17 +1,23 @@
 # tests/test_models.py
 
 import pytest
+import os
 import pandas as pd
 from sklearn.pipeline import Pipeline
 from src.hypothesis_testing.metrics import add_metrics
 from src.modeling.features import FeatureBuilder
 from src.modeling.models import ClassifierModel, RegressorModel
 
-# Minimal fixture to load processed dataset
+DATA_PATH = "data/processed/insurance_cleaned_data.csv"
+FALLBACK_SAMPLE = "tests/fixtures/insurance_sample.csv"
+
 @pytest.fixture(scope="module")
 def cleaned_df():
-    df = pd.read_csv("data/processed/insurance_cleaned_data.csv", low_memory=False)
-    return add_metrics(df)
+    path = DATA_PATH if os.path.exists(DATA_PATH) else FALLBACK_SAMPLE
+    if not os.path.exists(path):
+        pytest.skip("❌ No dataset found for modeling tests")
+    from src.hypothesis_testing.metrics import add_metrics
+    return add_metrics(pd.read_csv(path, low_memory=False))
 
 def test_feature_builder(cleaned_df):
     num_cols = cleaned_df.select_dtypes("number").columns.tolist()
